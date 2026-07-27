@@ -1,0 +1,16 @@
+name: Procesar notificaciones
+
+on:
+  schedule:
+    - cron: "* * * * *"
+
+  workflow_dispatch:
+
+jobs:
+  procesar:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Llamar API
+        run: |
+          curl -X GET https://TU-PROYECTO.vercel.app/api/procesar-notificaciones
