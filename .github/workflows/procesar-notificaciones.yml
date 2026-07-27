@@ -2,7 +2,7 @@ name: Procesar notificaciones
 
 on:
   schedule:
-    - cron: "* * * * *"
+    - cron: "*/5 * * * *"
 
   workflow_dispatch:
 
@@ -13,4 +13,4 @@ jobs:
     steps:
       - name: Llamar API
         run: |
-          curl -X GET https://TU-PROYECTO.vercel.app/api/procesar-notificaciones
+          curl -X GET https://regalo-365.vercel.app/api/procesar-notificaciones
