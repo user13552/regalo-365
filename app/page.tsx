@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { obtenerUrlFirmada } from "@/lib/storage";
 import { useRouter } from "next/navigation";
 
+
 import { Playfair_Display, Poppins, Dancing_Script, Cormorant_Garamond,} from "next/font/google";
 
 type Dia = {
@@ -62,6 +63,20 @@ const videosBienvenida = [
   Esta función decide qué vídeo mostrar
   según la fecha actual.
 */
+
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+
+  const base64 = (base64String + padding)
+    .replace(/-/g, "+")
+    .replace(/_/g, "/");
+
+  const rawData = window.atob(base64);
+
+  return Uint8Array.from(
+    [...rawData].map((char) => char.charCodeAt(0))
+  );
+}
 function obtenerVideoFondo(fecha: Date) {
 
   const dia = fecha.getDate();
@@ -133,6 +148,8 @@ const [usuario, setUsuario] = useState<"celia" | "albita" | null>(null);
 const [password, setPassword] = useState("");
 const [errorLogin, setErrorLogin] = useState("");
 const [iniciandoSesion, setIniciandoSesion] = useState(false);
+const [mostrarBotonNotificaciones, setMostrarBotonNotificaciones] =
+  useState(false);
 const [bienvenidaVista, setBienvenidaVista] = useState(false);
 const [animandoDia, setAnimandoDia] = useState(false);
 const [videoRegaloAbierto, setVideoRegaloAbierto] = useState(false);
@@ -216,6 +233,18 @@ if (errorUsuario || !usuarioBDEncontrado) {
 }
 
 setUsuarioBD(usuarioBDEncontrado);
+
+if (
+  usuarioBDEncontrado.nombre === "Alba" &&
+  Notification.permission !== "granted"
+) {
+  setMostrarBotonNotificaciones(true);
+}
+
+if (usuarioBDEncontrado.nombre === "Alba") {
+  solicitarPermisoNotificaciones();
+}
+
 setComprobandoSesion(false);
   }
   comprobarSesion();
@@ -255,13 +284,11 @@ if (errorUsuario || !usuarioBDEncontrado) {
   setErrorLogin(
     "Este correo no está autorizado para acceder."
   );
-  setComprobandoSesion(false);
   return;
 }
 
 setUsuarioBD(usuarioBDEncontrado);
 setComprobandoSesion(false);
-      setComprobandoSesion(false);
     }
   );
 
@@ -269,6 +296,25 @@ setComprobandoSesion(false);
     activo = false;
     subscription.unsubscribe();
   };
+}, []);
+
+useEffect(() => {
+  console.log("=== COMPROBANDO PUSH ===");
+
+  console.log(
+    "Notification:",
+    "Notification" in window
+  );
+
+  console.log(
+    "ServiceWorker:",
+    "serviceWorker" in navigator
+  );
+
+  console.log(
+    "PushManager:",
+    "PushManager" in window
+  );
 }, []);
 
 useEffect(() => {
@@ -577,6 +623,66 @@ const huecosIniciales =
   }, 250);
 }
 
+async function solicitarPermisoNotificaciones() {
+  console.log("1️⃣ Empieza");
+
+  if (!("Notification" in window)) return;
+
+  const permiso = await Notification.requestPermission();
+  console.log("2️⃣ Permiso:", permiso);
+
+  if (permiso !== "granted") return;
+
+  const registro = await navigator.serviceWorker.ready;
+  console.log("3️⃣ Service Worker listo");
+
+  let suscripcion =
+    await registro.pushManager.getSubscription();
+
+  console.log("4️⃣ Suscripción existente:", suscripcion);
+
+  if (!suscripcion) {
+    console.log("5️⃣ Creando nueva suscripción...");
+
+    suscripcion = await registro.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(
+        process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!
+      ),
+    });
+
+    console.log("6️⃣ Nueva suscripción creada:", suscripcion);
+  }
+
+  const json = suscripcion.toJSON();
+  console.log("7️⃣ JSON:", json);
+
+  const { data: existente } = await supabase
+  .from("push_subscriptions")
+  .select("id")
+  .eq("endpoint", json.endpoint!)
+  .maybeSingle();
+
+if (!existente) {
+  const { error } = await supabase
+    .from("push_subscriptions")
+    .insert({
+      usuario: "Alba",
+      endpoint: json.endpoint!,
+      p256dh: json.keys!.p256dh!,
+      auth: json.keys!.auth!,
+    });
+
+  if (error) {
+    console.error(error);
+  } else {
+    console.log("✅ Nueva suscripción guardada");
+  }
+} else {
+  console.log("ℹ️ La suscripción ya existía");
+}
+}
+
 async function iniciarSesionGoogle() {
   setErrorLogin("");
   setIniciandoGoogle(true);
@@ -794,6 +900,7 @@ if (comprobandoSesion) {
 }
 
 if (!usuarioBD) {
+  console.log("🎨 Render principal");
   return (
     <main className="relative min-h-screen flex items-center justify-center bg-[#031827] p-6">
       <video
@@ -908,6 +1015,21 @@ if (usuarioBD && usuario === null) {
       className="w-80 h-auto"
     />
   </button>
+
+  {mostrarBotonNotificaciones && (
+    <div className="flex justify-center mt-4 mb-4">
+  <button
+    onClick={solicitarPermisoNotificaciones}
+    className="transition-all duration-300 hover:scale-105"
+  >
+    <img
+      src="/login/activar_notificaciones.png"
+      alt="Activar notificaciones"
+      className="w-64 h-auto"
+    />
+  </button>
+  </div>
+)}
 </div>
       </div>
     </main>
@@ -1100,6 +1222,7 @@ if (errorDias) {
 
 
   return (
+    <>
     <main className="relative min-h-screen flex items-center justify-center p-6 overflow-hidden">
 
       {/* VIDEO DE FONDO */}
@@ -1366,5 +1489,8 @@ if (errorDias) {
 )}
 
     </main>
-  );
+  
+
+  </>
+);
 }

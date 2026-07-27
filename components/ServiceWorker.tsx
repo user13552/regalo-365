@@ -4,6 +4,7 @@ import { useEffect } from "react";
 
 export default function ServiceWorker() {
   useEffect(() => {
+     console.log("🚀 ServiceWorker component montado");
     if (!("serviceWorker" in navigator)) return;
 
     async function register() {
