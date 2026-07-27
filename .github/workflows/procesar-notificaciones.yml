@@ -13,4 +13,6 @@ jobs:
     steps:
       - name: Llamar API
         run: |
-          curl -X GET https://regalo-365.vercel.app/api/procesar-notificaciones
+          curl \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            https://regalo-365.vercel.app/api/procesar-notificaciones

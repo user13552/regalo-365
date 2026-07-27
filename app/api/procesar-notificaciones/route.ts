@@ -13,6 +13,19 @@ webpush.setVapidDetails(
   process.env.VAPID_PRIVATE_KEY!
 );
 
+export async function GET(request: Request) {
+
+  const secret = request.headers.get("x-cron-secret");
+
+  if (secret !== process.env.CRON_SECRET) {
+    return new Response("Unauthorized", {
+      status: 401,
+    });
+  }
+
+  return POST();
+}
+
 export async function POST() {
 
   console.log("🔔 Procesando notificaciones...");
@@ -101,8 +114,4 @@ export async function POST() {
     success: true,
   });
 
-}
-
-export async function GET() {
-  return POST();
 }
