@@ -55,18 +55,6 @@ export async function POST() {
 
   }
 
-  const { data: subs } = await supabase
-    .from("push_subscriptions")
-    .select("*");
-
-  if (!subs || subs.length === 0) {
-
-    return NextResponse.json({
-      success: false,
-      mensaje: "No hay dispositivos registrados",
-    });
-
-  }
 
   let enviadas = 0;
   let eliminadas = 0;
@@ -142,53 +130,35 @@ if (notificacion.ultima_ejecucion) {
     // ENVÍO
     // -----------------------------
 
-    for (const sub of subs) {
+    try {
 
-      try {
-
-        await webpush.sendNotification(
-          {
-            endpoint: sub.endpoint,
-            keys: {
-              p256dh: sub.p256dh,
-              auth: sub.auth,
-            },
-          },
-          JSON.stringify({
-            title: notificacion.titulo,
-            body: notificacion.mensaje,
-            icon: "/icon-192.png",
-            badge: "/icon-192.png",
-          })
-        );
-
-        enviadas++;
-
-      } catch (e: any) {
-
-        errores++;
-
-        console.error(e);
-
-        if (
-          e.statusCode === 404 ||
-          e.statusCode === 410
-        ) {
-
-          await supabase
-            .from("push_subscriptions")
-            .delete()
-            .eq("endpoint", sub.endpoint);
-
-          eliminadas++;
-
-          console.log("🗑 Suscripción eliminada");
-
-        }
-
-      }
-
+  const respuesta = await fetch(
+    `${process.env.NEXT_PUBLIC_SITE_URL}/api/send-notification`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        title: notificacion.titulo,
+        body: notificacion.mensaje,
+      }),
     }
+  );
+
+  const resultado = await respuesta.json();
+
+  enviadas += resultado.enviadas ?? 0;
+  eliminadas += resultado.eliminadas ?? 0;
+  errores += resultado.errores ?? 0;
+
+} catch (e) {
+
+  console.error(e);
+
+  errores++;
+
+}
 
     // -----------------------------
     // ACTUALIZAR BD
@@ -222,6 +192,32 @@ if (notificacion.ultima_ejecucion) {
   console.log("Enviadas:", enviadas);
   console.log("Eliminadas:", eliminadas);
   console.log("Errores:", errores);
+
+  await supabase
+  .from("historial_notificaciones")
+  .insert({
+
+    titulo:
+      notificaciones.length > 0
+        ? "Proceso automático"
+        : "Sin notificaciones",
+
+    mensaje: "",
+
+    tipo: "cron",
+
+    fecha_envio: ahora.toISOString(),
+
+    resultado:
+      errores > 0
+        ? "Parcial"
+        : "Correcto",
+
+    destinatarios: enviadas,
+
+    errores,
+
+  });
 
   return NextResponse.json({
     success: true,

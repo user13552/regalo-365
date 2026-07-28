@@ -17,6 +17,7 @@ export default function AdminPage() {
   const [cargando, setCargando] = useState(true);
   const [autorizada, setAutorizada] = useState(false);
   const [dias, setDias] = useState<any[]>([]);
+  const [historial, setHistorial] = useState<any[]>([]);
   const [fotosSeleccionadas, setFotosSeleccionadas] = useState<File[]>([]);
   const [tituloPush, setTituloPush] = useState("");
   const [mensajePush, setMensajePush] = useState("");
@@ -38,6 +39,23 @@ export default function AdminPage() {
     url: URL.createObjectURL(file),
   }));
 }, [fotosSeleccionadas]);
+
+async function cargarHistorial() {
+
+  const { data, error } = await supabase
+    .from("historial_notificaciones")
+    .select("*")
+    .order("created_at", {
+      ascending: false,
+    });
+
+  if (!error) {
+
+    setHistorial(data ?? []);
+
+  }
+
+}
 
 
 async function programarPush() {
@@ -125,38 +143,53 @@ async function programarPush() {
 }
 
 async function enviarPush() {
+
   setEnviandoPush(true);
 
   try {
+
     const { error } = await supabase
       .from("notificaciones")
       .insert({
         titulo: tituloPush,
         mensaje: mensajePush,
         fecha_envio: new Date().toISOString(),
-        tipo: "inmediata",
+        tipo: "programada",
+        enviada: false,
+        activa: true,
       });
 
-    console.log("ERROR INSERT:", error);
+    if (error) {
 
-    if (!error) {
+      console.error(error);
 
-  await fetch("/api/procesar-notificaciones", {
-    method: "POST",
-  });
+      alert("❌ Error guardando la notificación");
 
-  alert("✅ Notificación enviada");
+      return;
 
-  setTituloPush("");
-  setMensajePush("");
+    }
 
-}
+    // Procesar inmediatamente
+    await fetch("/api/procesar-notificaciones", {
+      method: "POST",
+    });
+
+    alert("✅ Notificación enviada");
+
+    setTituloPush("");
+    setMensajePush("");
+
+    // Recargar historial
+    await cargarHistorial();
 
   } catch (e) {
-    console.error("ERROR GENERAL:", e);
+
+    console.error(e);
+
   }
 
   setEnviandoPush(false);
+
 }
 
 
@@ -202,6 +235,7 @@ if (!admin) {
         .order("fecha");
 
         setDias(data ?? []);
+        await cargarHistorial();
 
       setAutorizada(true);
       setCargando(false);
@@ -433,6 +467,128 @@ if (!admin) {
 </div>
 
   </>
+)}
+
+{pestana === "historial" && (
+
+  <div className="rounded-3xl bg-white p-8 shadow-xl">
+
+    <div className="mb-6 flex items-center justify-between">
+
+      <h2 className="text-3xl font-bold text-black">
+        📊 Historial de notificaciones
+      </h2>
+
+      <button
+        onClick={cargarHistorial}
+        className="rounded-xl bg-violet-700 px-5 py-2 font-semibold text-white hover:bg-violet-800 transition"
+      >
+        🔄 Actualizar
+      </button>
+
+    </div>
+
+    {historial.length === 0 ? (
+
+      <div className="rounded-2xl border border-dashed p-10 text-center text-gray-500">
+
+        No hay notificaciones.
+
+      </div>
+
+    ) : (
+
+      <div className="space-y-5">
+
+        {historial.map((item) => (
+
+          <div
+            key={item.id}
+            className="rounded-2xl border border-gray-200 p-6 shadow-sm"
+          >
+
+            <div className="flex items-start justify-between">
+
+              <div>
+
+                <h3 className="text-xl font-bold text-black">
+                  {item.titulo}
+                </h3>
+
+                <p className="mt-2 text-gray-700">
+                  {item.mensaje}
+                </p>
+
+              </div>
+
+              <div>
+
+                {item.enviada ? (
+
+                  <span className="rounded-full bg-green-100 px-4 py-2 text-green-700 font-semibold">
+                    🟢 Enviada
+                  </span>
+
+                ) : item.activa ? (
+
+                  <span className="rounded-full bg-yellow-100 px-4 py-2 text-yellow-700 font-semibold">
+                    🟡 Pendiente
+                  </span>
+
+                ) : (
+
+                  <span className="rounded-full bg-gray-200 px-4 py-2 text-gray-700 font-semibold">
+                    ⚪ Desactivada
+                  </span>
+
+                )}
+
+              </div>
+
+            </div>
+
+            <div className="mt-5 grid grid-cols-2 gap-4 text-sm text-gray-600">
+
+              <div>
+                <strong>📅 Fecha:</strong><br />
+                {new Date(item.fecha_envio).toLocaleString()}
+              </div>
+
+              <div>
+                <strong>🔔 Tipo:</strong><br />
+                {item.tipo}
+              </div>
+
+              {item.tipo === "diaria" && (
+
+                <div>
+                  <strong>🕛 Hora diaria:</strong><br />
+                  {item.hora}
+                </div>
+
+              )}
+
+              {item.ultima_ejecucion && (
+
+                <div>
+                  <strong>✅ Última ejecución:</strong><br />
+                  {new Date(item.ultima_ejecucion).toLocaleString()}
+                </div>
+
+              )}
+
+            </div>
+
+          </div>
+
+        ))}
+
+      </div>
+
+    )}
+
+  </div>
+
 )}
 
 {pestana === "dias" && (
