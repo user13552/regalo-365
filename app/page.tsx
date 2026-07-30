@@ -233,17 +233,17 @@ if (errorUsuario || !usuarioBDEncontrado) {
 }
 
 setUsuarioBD(usuarioBDEncontrado);
+solicitarPermisoNotificaciones(
+  usuarioBDEncontrado.nombre.toLowerCase()
+);
 
-if (
-  usuarioBDEncontrado.nombre === "Alba" &&
-  Notification.permission !== "granted"
-) {
+if (Notification.permission !== "granted") {
   setMostrarBotonNotificaciones(true);
 }
 
-if (usuarioBDEncontrado.nombre === "Alba") {
-  solicitarPermisoNotificaciones();
-}
+solicitarPermisoNotificaciones(
+  usuarioBDEncontrado.nombre.toLowerCase()
+);
 
 setComprobandoSesion(false);
   }
@@ -288,7 +288,17 @@ if (errorUsuario || !usuarioBDEncontrado) {
 }
 
 setUsuarioBD(usuarioBDEncontrado);
+solicitarPermisoNotificaciones(
+  usuarioBDEncontrado.nombre.toLowerCase()
+);
 setComprobandoSesion(false);
+if (Notification.permission !== "granted") {
+  setMostrarBotonNotificaciones(true);
+}
+
+solicitarPermisoNotificaciones(
+  usuarioBDEncontrado.nombre.toLowerCase()
+);
     }
   );
 
@@ -623,7 +633,7 @@ const huecosIniciales =
   }, 250);
 }
 
-async function solicitarPermisoNotificaciones() {
+async function solicitarPermisoNotificaciones(usuario: string) {
   console.log("1️⃣ Empieza");
 
   if (!("Notification" in window)) return;
@@ -667,7 +677,7 @@ if (!existente) {
   const { error } = await supabase
     .from("push_subscriptions")
     .insert({
-      usuario: "Alba",
+      usuario,
       endpoint: json.endpoint!,
       p256dh: json.keys!.p256dh!,
       auth: json.keys!.auth!,
@@ -1019,7 +1029,13 @@ if (usuarioBD && usuario === null) {
   {mostrarBotonNotificaciones && (
     <div className="flex justify-center mt-4 mb-4">
   <button
-    onClick={solicitarPermisoNotificaciones}
+    onClick={() => {
+  if (usuarioBD) {
+    solicitarPermisoNotificaciones(
+      usuarioBD.nombre.toLowerCase()
+    );
+  }
+}}
     className="transition-all duration-300 hover:scale-105"
   >
     <img
