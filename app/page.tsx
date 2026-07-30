@@ -231,6 +231,7 @@ if (errorUsuario || !usuarioBDEncontrado) {
   setComprobandoSesion(false);
   return;
 }
+setUsuarioBD(usuarioBDEncontrado);
 
 if (Notification.permission !== "granted") {
   setMostrarBotonNotificaciones(true);
@@ -282,7 +283,7 @@ if (errorUsuario || !usuarioBDEncontrado) {
   return;
 }
 
-
+setUsuarioBD(usuarioBDEncontrado);
 setComprobandoSesion(false);
 if (Notification.permission !== "granted") {
   setMostrarBotonNotificaciones(true);
