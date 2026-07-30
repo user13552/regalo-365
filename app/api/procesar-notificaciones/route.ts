@@ -158,11 +158,12 @@ export async function POST() {
       if (notificacion.tipo === "programada") {
 
         await supabase
-          .from("notificaciones")
-          .update({
-            enviada: true,
-          })
-          .eq("id", notificacion.id);
+  .from("notificaciones")
+  .update({
+    enviada: true,
+    activa: false,
+  })
+  .eq("id", notificacion.id);
 
       }
 
