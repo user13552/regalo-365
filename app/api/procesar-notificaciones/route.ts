@@ -1,16 +1,9 @@
 import { NextResponse } from "next/server";
-import webpush from "web-push";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
-webpush.setVapidDetails(
-  "mailto:celia.rm42@gmail.com",
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!
 );
 
 export async function GET(request: Request) {
@@ -24,6 +17,7 @@ export async function GET(request: Request) {
   }
 
   return POST();
+
 }
 
 export async function POST() {
@@ -38,12 +32,14 @@ export async function POST() {
     .eq("activa", true);
 
   if (error) {
+
     console.error(error);
 
     return NextResponse.json(
       { success: false },
       { status: 500 }
     );
+
   }
 
   if (!notificaciones || notificaciones.length === 0) {
@@ -55,16 +51,15 @@ export async function POST() {
 
   }
 
-
   let enviadas = 0;
   let eliminadas = 0;
   let errores = 0;
 
   for (const notificacion of notificaciones) {
 
-    // -----------------------------
+    // ===============================
     // PROGRAMADAS
-    // -----------------------------
+    // ===============================
 
     if (notificacion.tipo === "programada") {
 
@@ -76,148 +71,128 @@ export async function POST() {
 
     }
 
-    // -----------------------------
+    // ===============================
     // DIARIAS
-    // -----------------------------
+    // ===============================
 
     if (notificacion.tipo === "diaria") {
 
       const [hora, minuto] = notificacion.hora
-  .split(":")
-  .map(Number);
+        .split(":")
+        .map(Number);
 
-// Hora programada para hoy
-const programada = new Date(ahora);
+      const programada = new Date(ahora);
 
-programada.setHours(hora);
-programada.setMinutes(minuto);
-programada.setSeconds(0);
-programada.setMilliseconds(0);
+      programada.setHours(hora);
+      programada.setMinutes(minuto);
+      programada.setSeconds(0);
+      programada.setMilliseconds(0);
 
-// Diferencia en milisegundos
-const diferencia =
-  ahora.getTime() - programada.getTime();
+      const diferencia =
+        ahora.getTime() - programada.getTime();
 
-// Si todavía no ha llegado la hora
-if (diferencia < 0) {
-  continue;
-}
+      // Todavía no es la hora
+      if (diferencia < 0) continue;
 
-// Si han pasado más de 5 minutos
-if (diferencia > 5 * 60 * 1000) {
-  continue;
-}
+      // Ya pasaron más de 5 minutos
+      if (diferencia > 5 * 60 * 1000) continue;
 
-// Si ya se envió hoy
-if (notificacion.ultima_ejecucion) {
+      // Ya se envió hoy
+      if (notificacion.ultima_ejecucion) {
 
-  const ultima = new Date(
-    notificacion.ultima_ejecucion
-  );
+        const ultima = new Date(
+          notificacion.ultima_ejecucion
+        );
 
-  if (
-    ultima.toDateString() ===
-    ahora.toDateString()
-  ) {
-    continue;
-  }
+        if (
+          ultima.toDateString() ===
+          ahora.toDateString()
+        ) {
+          continue;
+        }
 
-}
+      }
 
     }
 
-    // -----------------------------
+    // ===============================
     // ENVÍO
-    // -----------------------------
+    // ===============================
 
     try {
 
-  const respuesta = await fetch(
-    `${process.env.NEXT_PUBLIC_SITE_URL}/api/send-notification`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        title: notificacion.titulo,
-        body: notificacion.mensaje,
-      }),
-    }
-  );
+      const respuesta = await fetch(
+        `${process.env.NEXT_PUBLIC_SITE_URL}/api/send-notification`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            title: notificacion.titulo,
+            body: notificacion.mensaje,
+          }),
+        }
+      );
 
-  const resultado = await respuesta.json();
+      const resultado = await respuesta.json();
 
-  enviadas += resultado.enviadas ?? 0;
-  eliminadas += resultado.eliminadas ?? 0;
-  errores += resultado.errores ?? 0;
+      console.log(resultado);
 
-} catch (e) {
+      if (!respuesta.ok || !resultado.success) {
 
-  console.error(e);
+        errores++;
 
-  errores++;
+        continue;
 
-}
+      }
 
-    // -----------------------------
-    // ACTUALIZAR BD
-    // -----------------------------
+      enviadas += resultado.enviadas ?? 0;
+      eliminadas += resultado.eliminadas ?? 0;
+      errores += resultado.errores ?? 0;
 
-    if (notificacion.tipo === "programada") {
+      // ===============================
+      // ACTUALIZAR ESTADO
+      // ===============================
 
-      await supabase
-        .from("notificaciones")
-        .update({
-          enviada: true,
-        })
-        .eq("id", notificacion.id);
+      if (notificacion.tipo === "programada") {
 
-    }
+        await supabase
+          .from("notificaciones")
+          .update({
+            enviada: true,
+          })
+          .eq("id", notificacion.id);
 
-    if (notificacion.tipo === "diaria") {
+      }
 
-      await supabase
-        .from("notificaciones")
-        .update({
-          ultima_ejecucion: ahora.toISOString(),
-        })
-        .eq("id", notificacion.id);
+      if (notificacion.tipo === "diaria") {
+
+        await supabase
+          .from("notificaciones")
+          .update({
+            ultima_ejecucion:
+              ahora.toISOString(),
+          })
+          .eq("id", notificacion.id);
+
+      }
+
+    } catch (e) {
+
+      console.error(e);
+
+      errores++;
 
     }
 
   }
 
   console.log("📊 Resumen");
+
   console.log("Enviadas:", enviadas);
   console.log("Eliminadas:", eliminadas);
   console.log("Errores:", errores);
-
-  await supabase
-  .from("historial_notificaciones")
-  .insert({
-
-    titulo:
-      notificaciones.length > 0
-        ? "Proceso automático"
-        : "Sin notificaciones",
-
-    mensaje: "",
-
-    tipo: "cron",
-
-    fecha_envio: ahora.toISOString(),
-
-    resultado:
-      errores > 0
-        ? "Parcial"
-        : "Correcto",
-
-    destinatarios: enviadas,
-
-    errores,
-
-  });
 
   return NextResponse.json({
     success: true,
