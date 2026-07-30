@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { obtenerUrlFirmada } from "@/lib/storage";
 import { useRouter } from "next/navigation";
@@ -29,6 +29,7 @@ type Dia = {
   textoEspecialTitulo: string;
   textoEspecial: string;
 };
+
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -174,8 +175,7 @@ const [diasBD, setDiasBD] = useState<Dia[]>([]);
 const [cargandoDias, setCargandoDias] = useState(true);
 const [errorDias, setErrorDias] = useState("");
 const [videoFondoUrl, setVideoFondoUrl] = useState("");
-
-
+const pushRegistrada = useRef(false);
 
 useEffect(() => {
   let activo = true;
@@ -232,11 +232,6 @@ if (errorUsuario || !usuarioBDEncontrado) {
   return;
 }
 
-setUsuarioBD(usuarioBDEncontrado);
-solicitarPermisoNotificaciones(
-  usuarioBDEncontrado.nombre.toLowerCase()
-);
-
 if (Notification.permission !== "granted") {
   setMostrarBotonNotificaciones(true);
 }
@@ -287,10 +282,7 @@ if (errorUsuario || !usuarioBDEncontrado) {
   return;
 }
 
-setUsuarioBD(usuarioBDEncontrado);
-solicitarPermisoNotificaciones(
-  usuarioBDEncontrado.nombre.toLowerCase()
-);
+
 setComprobandoSesion(false);
 if (Notification.permission !== "granted") {
   setMostrarBotonNotificaciones(true);
@@ -634,6 +626,11 @@ const huecosIniciales =
 }
 
 async function solicitarPermisoNotificaciones(usuario: string) {
+  if (pushRegistrada.current) {
+  return;
+}
+
+pushRegistrada.current = true;
   console.log("1️⃣ Empieza");
 
   if (!("Notification" in window)) return;
